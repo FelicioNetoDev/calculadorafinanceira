@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gestor Pessoal Econômico</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root{
+    --azul:#1F3864; --azul2:#2F5597; --verde:#1F7A6D; --laranja:#C55A11;
+    --fundo:#F4F6FA; --card:#FFFFFF; --texto:#1A2233; --texto2:#5B6478;
+    --borda:#E3E8F0; --ok:#1E8E3E; --warn:#B26A00; --bad:#C5221F;
+    --sombra:0 2px 10px rgba(31,56,100,.08);
+  }
+  *{box-sizing:border-box}
+  html,body{max-width:100%;overflow-x:hidden}
+  body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+       background:var(--fundo);color:var(--texto);font-size:15px;line-height:1.45}
+  header{background:linear-gradient(135deg,var(--azul),var(--azul2));color:#fff;padding:26px 20px 0}
+  header h1{margin:0;font-size:26px;letter-spacing:.2px}
+  header p{margin:6px 0 14px;opacity:.85;font-size:13.5px}
+  nav{display:flex;gap:4px;flex-wrap:wrap}
+  nav button{border:none;background:rgba(255,255,255,.12);color:#fff;padding:11px 18px;
+    border-radius:10px 10px 0 0;cursor:pointer;font-size:14px;font-weight:600}
+  nav button.ativo{background:var(--fundo);color:var(--azul)}
+  #badgeMercado{display:inline-flex;gap:8px;align-items:center;margin-top:10px;font-size:12.5px;
+    background:rgba(255,255,255,.14);padding:5px 12px;border-radius:999px}
+  #badgeMercado .ponto{width:8px;height:8px;border-radius:50%;background:#7ee08a}
+  #badgeMercado.cache .ponto{background:#f2c94c}
+  main{max-width:1080px;margin:0 auto;padding:24px 20px 60px}
+  section{display:none}
+  section.ativa{display:block;animation:aparece .25s ease}
+  @keyframes aparece{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  h2{font-size:19px;margin:0 0 4px}
+  .sub{color:var(--texto2);font-size:13px;margin:0 0 18px}
+  .grid{display:grid;gap:14px}
+  .g2{grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+  .g3{grid-template-columns:repeat(auto-fit,minmax(210px,1fr))}
+  .card{background:var(--card);border:1px solid var(--borda);border-radius:14px;
+        box-shadow:var(--sombra);padding:16px 18px}
+  .card h3{margin:0 0 10px;font-size:13px;text-transform:uppercase;letter-spacing:.6px;color:var(--texto2)}
+  .kpi{font-size:24px;font-weight:700;margin-top:2px}
+  .kpi.pequeno{font-size:18px}
+  .label{font-size:12.5px;color:var(--texto2)}
+  input,select{font:inherit;padding:9px 12px;border:1.5px solid var(--borda);border-radius:9px;
+    background:#FFFBEA;width:100%;outline-color:var(--azul2)}
+  select{background:#fff;cursor:pointer}
+  input:focus,select:focus{border-color:var(--azul2);background:#fff}
+  .campo label{display:block;font-size:12.5px;color:var(--texto2);margin-bottom:5px}
+  .calculado{background:var(--fundo);border-radius:10px;padding:9px 12px;border:1px solid var(--borda)}
+  .calculado .kpi{font-size:20px}
+  button.btn{font:inherit;font-weight:600;border:1.5px solid var(--azul2);color:var(--azul2);
+    background:#fff;padding:8px 14px;border-radius:9px;cursor:pointer}
+  button.btn:hover{background:var(--azul2);color:#fff}
+  button.btn.mini{padding:5px 10px;font-size:12.5px}
+  .linha{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+  .status{font-size:12.5px;font-weight:700;padding:3px 10px;border-radius:999px;white-space:nowrap}
+  .ok{color:var(--ok);background:#E6F4EA}
+  .warn{color:var(--warn);background:#FEF7E0}
+  .bad{color:var(--bad);background:#FCE8E6}
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  th{text-align:left;color:var(--texto2);font-size:11.5px;text-transform:uppercase;
+     letter-spacing:.5px;padding:8px 10px;border-bottom:2px solid var(--borda)}
+  td{padding:9px 10px;border-bottom:1px solid var(--borda);vertical-align:middle}
+  .barra{height:9px;background:#EDEFF4;border-radius:999px;overflow:hidden;margin-top:9px}
+  .barra>div{height:100%;border-radius:999px;background:var(--cor,var(--azul2));transition:width .3s}
+  .chip{display:inline-block;font-size:11px;font-weight:700;color:#fff;background:var(--cor);
+        padding:3px 9px;border-radius:999px}
+  .nota{font-size:12.5px;color:var(--texto2);margin-top:12px}
+  .destaque{background:linear-gradient(135deg,#EEF3FB,#F7FAF4)}
+  .num{font-variant-numeric:tabular-nums}
+  .atalho{font-size:12px;border:1px solid var(--borda);background:#fff;border-radius:999px;
+    padding:4px 11px;cursor:pointer;color:var(--texto2);margin:2px}
+  .atalho:hover{border-color:var(--azul2);color:var(--azul2)}
+  #t-despesas input,#t-despesas select{background:#fff;padding:6px 8px;font-size:13.5px}
+  #t-despesas input[type=text]{width:100%;min-width:120px}
+  #t-despesas input[type=number]{width:110px;text-align:right}
+  #t-despesas select{width:auto}
+  .remover{color:var(--bad);border-color:var(--bad);padding:5px 11px}
+  .remover:hover{background:var(--bad);color:#fff}
+  footer{max-width:1080px;margin:0 auto;padding:0 20px 40px;color:var(--texto2);font-size:12px}
+  /* ===== mobile ===== */
+  @media(max-width:640px){
+    header{padding:20px 14px 0}
+    header h1{font-size:20px}
+    header p{font-size:12.5px;margin-bottom:10px}
+    nav{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+    nav::-webkit-scrollbar{display:none}
+    nav button{white-space:nowrap;flex:0 0 auto;padding:10px 14px;font-size:13px}
+    #badgeMercado{font-size:11px;gap:6px;padding:4px 10px;max-width:100%;flex-wrap:wrap;margin-top:8px}
+    main{padding:16px 12px 48px}
+    .card{padding:14px;border-radius:12px}
+    h2{font-size:17px}
+    .sub{font-size:12.5px;margin-bottom:14px}
+    .kpi{font-size:21px}
+    .kpi.pequeno{font-size:16px}
+    .calculado .kpi{font-size:17px}
+    .label{font-size:12px}
+    .linha{gap:6px}
+    button.btn{padding:10px 14px}
+    button.btn.mini{padding:7px 12px}
+    .atalho{font-size:11.5px;padding:6px 11px}
+    table{font-size:12.5px}
+    th,td{padding:7px 6px}
+    #t-orcamento .barra{width:70px !important}
+    #t-despesas input[type=number]{width:86px}
+    #t-despesas input[type=text]{min-width:90px}
+    #t-despesas select{max-width:110px}
+    .chip{padding:2px 7px}
+    /* formulário de despesas em grade: descrição e botão ocupam a linha inteira */
+    #form-despesa{display:grid;grid-template-columns:1fr 1fr;gap:8px !important}
+    #form-despesa .campo:first-child,#form-despesa .campo:nth-child(4){grid-column:1/-1}
+    #form-despesa button.btn{grid-column:1/-1;padding:13px;font-size:15px}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Gestor Pessoal Econômico</h1>
+  <p>Informe seu ganho e suas despesas — a calculadora mostra o que você pode gastar, quanto reservar para
+     despesas do ano (IPVA, IPTU, viagens) e o que você alcança se seguir a risca.</p>
+  <nav id="tabs"></nav>
+  <div id="badgeMercado"><span class="ponto"></span><span id="txtMercado">carregando dados de mercado…</span>
+    <button class="btn mini" id="btnAtualizar" title="Buscar Selic e IPCA no Banco Central">↻ atualizar</button></div>
+</header>
+
+<main>
+
+<!-- ============ 1. DIAGNÓSTICO ============ -->
+<section id="s0" class="ativa">
+  <h2>1. Diagnóstico</h2>
+  <p class="sub">Comece pelo essencial: seu ganho do mês. As outras abas fazem o resto.</p>
+  <div class="grid g3">
+    <div class="card destaque">
+      <div class="campo"><label><b>Seu ganho líquido mensal</b> (o que cai na conta)</label>
+        <input type="number" min="0" step="50" id="in-renda" data-path="renda"></div>
+      <div class="campo" style="margin-top:10px"><label>Outras rendas mensais (freelas, aluguéis…)</label>
+        <input type="number" min="0" step="50" id="in-outras" data-path="outras"></div>
+    </div>
+    <div class="card">
+      <h3>Renda total</h3><div class="label">Ganho líquido + outras rendas</div>
+      <div class="kpi num" id="k-renda">—</div>
+      <div class="label" style="margin-top:10px"><b>Despesas fixas do mês</b> (aba Despesas)</div>
+      <div class="kpi pequeno num" id="k-fixas">—</div>
+    </div>
+    <div class="card">
+      <h3>Compromissos do ano</h3><div class="label">IPVA, IPTU, viagens, material escolar…</div>
+      <div class="kpi num" id="k-anuais">—</div>
+      <div class="label" style="margin-top:10px"><b>Reservar por mês para isso:</b></div>
+      <div class="kpi pequeno num" id="k-reserva-anual">—</div>
+    </div>
+  </div>
+  <div class="grid g3" style="margin-top:14px">
+    <div class="card">
+      <div class="campo"><label><b>Reserva guardada hoje</b> (dinheiro disponível para emergências)</label>
+        <input type="number" min="0" step="100" id="in-reserva" data-path="reserva"></div>
+    </div>
+    <div class="card">
+      <div class="campo"><label><b>Dívidas totais</b> (TODA a dívida acumulada: financiamento, cartão,
+        empréstimos — não a parcela do mês)</label>
+        <input type="number" min="0" step="100" id="in-dividas" data-path="dividas"></div>
+    </div>
+    <div class="card">
+      <h3>Meses de segurança</h3><div class="label">Reserva guardada ÷ gasto mensal</div>
+      <div class="kpi num" id="k-meses-seg">—</div>
+      <div class="label" id="k-dados">—</div>
+    </div>
+  </div>
+  <div class="nota">Despesa fixa é o mesmo valor todo mês (aluguel, financiamento, internet). A parcela do
+     financiamento você lança na aba Despesas como fixa; o saldo devedor inteiro vai no campo "Dívidas totais" aqui.</div>
+</section>
+
+<!-- ============ 2. DESPESAS ============ -->
+<section id="s1">
+  <h2>2. Despesas do mês</h2>
+  <p class="sub">Lance o que você gasta: <b>fixas</b> (iguais todo mês), <b>variáveis</b> (mudam: luz, mercado) e
+     <b>anuais</b> (IPVA, IPTU, material escolar, viagem — informe o valor do ANO inteiro).</p>
+  <div class="grid g3" style="margin-bottom:16px">
+    <div class="card"><h3>Despesas fixas / mês</h3><div class="kpi num" id="d-fixas">—</div>
+      <div class="label" id="d-fixas-pct">—</div></div>
+    <div class="card"><h3>Despesas variáveis / mês</h3><div class="kpi num" id="d-variaveis">—</div>
+      <div class="label" id="d-variaveis-pct">—</div></div>
+    <div class="card destaque"><h3>Reservar por mês (anuais ÷ 12)</h3><div class="kpi num" id="d-reserva">—</div>
+      <div class="label" id="d-reserva-info">—</div></div>
+  </div>
+  <div class="card">
+    <h3>Adicionar lançamento</h3>
+    <form id="form-despesa" class="linha" style="align-items:flex-end;gap:10px">
+      <div class="campo" style="flex:2;min-width:150px"><label>O quê? (ex.: aluguel)</label>
+        <input type="text" id="nd-desc" required maxlength="40" placeholder="aluguel, luz, IPVA…" style="background:#fff"></div>
+      <div class="campo" style="flex:1;min-width:120px"><label>Quanto? (R$)</label>
+        <input type="number" id="nd-valor" required min="0.01" step="0.01" style="background:#fff" placeholder="0,00"></div>
+      <div class="campo" style="flex:1;min-width:110px"><label>Tipo</label>
+        <select id="nd-tipo">
+          <option value="F">Fixa</option>
+          <option value="V">Variável</option>
+          <option value="A">Anual (valor do ano)</option>
+        </select></div>
+      <div class="campo" style="flex:1;min-width:160px"><label>Grupo</label>
+        <select id="nd-grupo"></select></div>
+      <button class="btn" type="submit">+ Adicionar</button>
+    </form>
+    <div class="nota" id="hint-anual" style="display:none">💡 Tipo <b>Anual</b>: informe o valor do ano inteiro
+      (ex.: IPVA de 2027 = R$ 2.400). A calculadora divide por 12 e mostra quanto você deve reservar por mês.</div>
+    <div style="margin-top:10px"><span class="label">Atalhos (clique e digite o valor): </span><span id="atalhos"></span></div>
+  </div>
+  <div class="card" style="margin-top:14px">
+    <h3>Lançamentos <span class="label" id="d-qtd"></span></h3>
+    <div style="overflow-x:auto">
+      <table id="t-despesas">
+        <thead><tr><th>Descrição</th><th style="text-align:right">Valor (R$)</th><th>Tipo</th><th>Grupo</th><th></th></tr></thead>
+        <tbody id="tb-despesas"></tbody>
+      </table>
+    </div>
+    <div class="nota" id="d-vazia">Nenhum lançamento ainda — use os atalhos acima ou adicione manualmente.</div>
+  </div>
+</section>
+
+<!-- ============ 3. ORÇAMENTO ============ -->
+<section id="s2">
+  <h2>3. Orçamento inteligente</h2>
+  <p class="sub">Comparamos o que você lançou na aba <b>Despesas</b> com o limite recomendado para cada grupo —
+     calculado pelo método dos economistas (Warren 50/30/20, Nigro 60/15/25, Cerbasi). Nada de percentuais para você mexer.</p>
+  <div class="linha" style="margin-bottom:14px">
+    <span class="label">Dica: estourou um grupo? Corte nele antes do fim do mês — comece por Prazeres e Conforto.</span>
+    <span class="status ok" id="st-total">—</span>
+  </div>
+  <div class="card">
+    <div style="overflow-x:auto">
+    <table id="t-orcamento">
+      <thead><tr><th>Grupo</th><th style="text-align:right">Limite ideal</th>
+        <th style="text-align:right">Gasto real</th><th style="text-align:right">Pode gastar</th><th>Situação</th></tr></thead>
+      <tbody id="tb-orcamento"></tbody>
+      <tfoot><tr>
+        <td><b>Total</b></td>
+        <td class="num" style="text-align:right"><b id="tf-limite">—</b></td>
+        <td class="num" style="text-align:right"><b id="tf-gasto">—</b></td>
+        <td class="num" style="text-align:right"><b id="tf-saldo">—</b></td>
+        <td></td>
+      </tr></tfoot>
+    </table>
+    </div>
+  </div>
+  <div class="card destaque" style="margin-top:14px">
+    <div class="linha">
+      <div><span class="label">Reserva mensal para compromissos anuais (IPVA, IPTU, viagens…)</span>
+        <div class="kpi num" id="o-reserva">—</div></div>
+      <div style="text-align:right"><span class="label"><b>Sobra do mês</b> (renda − gastos − reserva)</span>
+        <div class="kpi num" id="o-sobra">—</div></div>
+    </div>
+    <div class="nota">A sobra do mês é o que vai para reserva de emergência e investimentos — veja na aba <b>4. Plano</b>.</div>
+  </div>
+  <div class="grid g2" style="margin-top:14px">
+    <div class="card">
+      <h3>Como sua renda foi usada (gasto real)</h3>
+      <div style="max-width:340px;margin:auto;height:250px;position:relative"><canvas id="chDistribuicao"></canvas></div>
+    </div>
+    <div class="card">
+      <h3>Resumo do mês</h3>
+      <table><tbody>
+        <tr><td>Renda total</td><td class="num" id="r-renda" style="text-align:right"></td></tr>
+        <tr><td>Gastos do mês (fixas + variáveis)</td><td class="num" id="r-gasto" style="text-align:right"></td></tr>
+        <tr><td>Reserva p/ compromissos anuais</td><td class="num" id="r-reserva" style="text-align:right"></td></tr>
+        <tr><td><b>Sobra do mês</b></td><td class="num" id="r-sobra" style="text-align:right"><b></b></td></tr>
+      </tbody></table>
+      <div class="nota">Os limites por grupo são calculados automaticamente da sua renda. "Gasto real" é a soma
+        dos seus lançamentos fixos e variáveis da aba Despesas.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 4. PLANO ============ -->
+<section id="s3">
+  <h2>4. Plano — reserva e investimentos</h2>
+  <p class="sub">A calculadora pega na sua mão: mostra a sobra do mês, divide entre reserva de emergência e
+     investimentos, e diz o que você alcança se seguir a risca.</p>
+  <div class="grid g3">
+    <div class="card destaque">
+      <h3>Sobra do mês</h3>
+      <div class="kpi num" id="p-sobra">—</div>
+      <div class="label" id="p-sobra-frase">—</div>
+    </div>
+    <div class="card">
+      <h3>Reserva de emergência</h3>
+      <div class="linha"><span class="label">Guardado hoje</span><b class="num" id="p-res-hoje">—</b></div>
+      <div class="linha"><span class="label">Meta (6 × seus Custos Fixos)</span><b class="num" id="p-res-meta">—</b></div>
+      <div class="linha"><span class="label">Falta</span><b class="num" id="p-res-falta">—</b></div>
+      <div class="barra" style="--cor:#C55A11"><div id="p-res-barra"></div></div>
+      <div class="label" style="margin-top:8px" id="p-res-tempo">—</div>
+    </div>
+    <div class="card">
+      <h3>Divisão da sobra (automática)</h3>
+      <div class="linha"><span class="label">→ Reserva de emergência</span><b class="num" id="p-dest-res">—</b></div>
+      <div class="linha"><span class="label">→ Investimentos</span><b class="num" id="p-dest-inv">—</b></div>
+      <div class="nota" id="p-dest-frase">—</div>
+    </div>
+  </div>
+  <div class="card destaque" style="margin-top:14px">
+    <h3>🎯 Se seguir a risca, você alcança</h3>
+    <div class="linha" style="margin-bottom:12px">
+      <span class="label">Rendimento: juros compostos pela taxa abaixo (a.a.)</span>
+      <span class="linha" style="gap:8px">
+        <input type="number" min="0" step="0.1" id="p-taxa" data-path="taxa" data-pct="taxa"
+               style="width:110px" title="Taxa de juros anual">
+        <button class="btn mini" id="btnCdi">usar CDI do BCB</button>
+      </span>
+    </div>
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px">
+      <div class="calculado"><div class="label">1 mês</div><div class="kpi num" id="p-m1">—</div>
+        <div class="label" id="p-m1-d"></div></div>
+      <div class="calculado"><div class="label">Trimestre</div><div class="kpi num" id="p-m3">—</div>
+        <div class="label" id="p-m3-d"></div></div>
+      <div class="calculado"><div class="label">Semestre</div><div class="kpi num" id="p-m6">—</div>
+        <div class="label" id="p-m6-d"></div></div>
+      <div class="calculado"><div class="label">1 ano</div><div class="kpi num" id="p-m12">—</div>
+        <div class="label" id="p-m12-d"></div></div>
+    </div>
+    <div class="label" style="margin-top:10px" id="p-frase-ano">—</div>
+    <div style="height:200px;position:relative;margin-top:12px"><canvas id="chPlano"></canvas></div>
+    <div class="nota">A reserva é prioridade: enquanto não atingir a meta (6 × Custos Fixos), toda a sobra vai
+      para ela. Depois disso, toda a sobra vira investimento. Assim você se protege primeiro e cresce depois.</div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  Metodologia de acompanhamento (Banco Central / CVM): registre receitas, despesas, patrimônio, metas e inflação.
+  Limites por grupo calculados pelos métodos de Elizabeth Warren (50/30/20), Thiago Nigro (60/15/25) e Gustavo Cerbasi.
+  Dados de Selic/IPCA: SGS Banco Central do Brasil. Seus dados ficam salvos apenas neste navegador (cache local).
+</footer>
+
+<script>
+"use strict";
+/* ================= dados-base ================= */
+const GRUPOS = [
+  {nome:"Custos Fixos", cor:"#2F5597", pct:0.40},
+  {nome:"Conforto", cor:"#548235", pct:0.10},
+  {nome:"Metas", cor:"#C55A11", pct:0.10},
+  {nome:"Prazeres", cor:"#7030A0", pct:0.10},
+  {nome:"Liberdade Financeira", cor:"#1F7A6D", pct:0.25},
+  {nome:"Conhecimento", cor:"#BF9000", pct:0.05},
+];
+const TIPOS = {F:"Fixa", V:"Variável", A:"Anual"};
+const ATALHOS = [                    // atalhos da aba Despesas: [descrição, tipo, grupo]
+  ["Aluguel/Financiamento","F",0],["Luz","V",0],["Água","V",0],["Internet/TV","F",0],
+  ["Celular","F",0],["Mercado/Supermercado","V",0],["Transporte/Combustível","V",0],
+  ["Plano de saúde","F",0],["Academia","F",1],["Delivery/Restaurante","V",1],
+  ["Streaming/Lazer","F",3],["Curso/Livro","V",5],
+  ["IPVA","A",0],["IPTU","A",0],["Material escolar","A",0],["Viagem de férias","A",2],
+  ["Presentes de fim de ano","A",3],["Manutenção do carro","A",1],
+];
+const esc = s => String(s).replace(/"/g,"&quot;").replace(/</g,"&lt;");
+
+/* ================= estado e cache ================= */
+const CHAVE_ESTADO = "gpe_estado_v3";
+const CHAVE_MERCADO = "gpe_mercado_v1";
+const TTL = 12 * 3600 * 1000;
+let M = null;                        // dados de mercado {selic, cdi, ipca, data}
+
+const padrao = () => ({
+  renda: 5000, outras: 0, reserva: 2000, dividas: 3000, taxa: 0.105,
+  pct: GRUPOS.map(g => g.pct),
+  despesas: [
+    {d:"Aluguel/Financiamento", v:1000, t:"F", g:0},
+    {d:"Luz", v:120, t:"V", g:0},
+    {d:"Internet/TV", v:80, t:"F", g:0},
+    {d:"Mercado", v:500, t:"V", g:0},
+    {d:"Streaming", v:45, t:"F", g:3},
+    {d:"IPVA", v:900, t:"A", g:0},
+    {d:"Viagem de férias", v:1200, t:"A", g:2},
+  ],
+});
+let S = padrao();
+try { const salvo = JSON.parse(localStorage.getItem(CHAVE_ESTADO)); if (salvo) S = {...padrao(), ...salvo}; } catch(e){}
+const salvar = () => localStorage.setItem(CHAVE_ESTADO, JSON.stringify(S));
+
+/* ================= formatação e matemática ================= */
+const moeda = v => (isFinite(v) ? v : 0).toLocaleString("pt-BR", {style:"currency", currency:"BRL"});
+const pctf = (v, d=1) => (isFinite(v) ? v*100 : 0).toLocaleString("pt-BR",
+  {minimumFractionDigits:d, maximumFractionDigits:d}) + "%";
+const num = (v, d=0) => (isFinite(v) ? v : 0).toLocaleString("pt-BR", {maximumFractionDigits:d, minimumFractionDigits:d});
+const $ = id => document.getElementById(id);
+const setTxt = (id, t) => { const el = $(id); if (el) el.textContent = t; };
+
+function fv(i, n, pmt, pv){ const k = Math.pow(1+i, n); return pv*k + (i ? pmt*(k-1)/i : pmt*n); }
+function nper(i, pmt, pv, alvo){
+  if (pv >= alvo) return 0;
+  if (i === 0) return (alvo - pv) / pmt;
+  const k = (alvo + pmt/i) / (pv + pmt/i);
+  return k > 0 ? Math.log(k) / Math.log(1+i) : NaN;
+}
+
+/* ================= derivados ================= */
+const rendaTotal = () => S.renda + S.outras;
+const limites = () => S.pct.map(p => rendaTotal() * p);
+const fixas = () => S.despesas.filter(d => d.t==="F").reduce((a,d)=>a+d.v,0);
+const variaveis = () => S.despesas.filter(d => d.t==="V").reduce((a,d)=>a+d.v,0);
+const anuais = () => S.despesas.filter(d => d.t==="A").reduce((a,d)=>a+d.v,0);
+const reservaAnual = () => anuais()/12;                       // quanto guardar por mês p/ anuais
+const gastos = () => GRUPOS.map((_, gi) =>
+  S.despesas.filter(d => d.g===gi && d.t!=="A").reduce((a,d)=>a+d.v,0));
+const gastoTotal = () => gastos().reduce((a,b) => a+b, 0);
+const sobra = () => rendaTotal() - gastoTotal() - reservaAnual();
+
+/* ================= abas ================= */
+const ABAS = ["Diagnóstico","Despesas","Orçamento","Plano"];
+$("tabs").innerHTML = ABAS.map((t,i) => `<button data-i="${i}" class="${i===0?'ativo':''}">${i+1}. ${t}</button>`).join("");
+$("tabs").onclick = e => {
+  const b = e.target.closest("button"); if (!b) return;
+  document.querySelectorAll("#tabs button").forEach(x => x.classList.toggle("ativo", x === b));
+  document.querySelectorAll("section").forEach(s => s.classList.toggle("ativa", s.id === "s" + b.dataset.i));
+};
+
+/* ================= construção ================= */
+$("nd-grupo").innerHTML = GRUPOS.map((g,i) => `<option value="${i}">${g.nome}</option>`).join("");
+$("atalhos").innerHTML = ATALHOS.map((a,i) =>
+  `<button type="button" class="atalho" data-atalho="${i}">+ ${a[0]}</button>`).join("");
+
+$("tb-orcamento").innerHTML = GRUPOS.map((g,i) => `
+  <tr>
+    <td><span class="chip" style="--cor:${g.cor}">${g.nome}</span></td>
+    <td class="num" style="text-align:right" id="lim-${i}">—</td>
+    <td style="text-align:right"><b class="num" id="gasto-${i}">—</b>
+      <div class="barra" style="width:130px;margin:5px 0 0 auto"><div id="bar-${i}"></div></div></td>
+    <td class="num" style="text-align:right" id="pode-${i}">—</td>
+    <td><span class="status" id="st-${i}">—</span></td>
+  </tr>`).join("");
+
+function renderDespesas(){
+  $("tb-despesas").innerHTML = S.despesas.map((d,i) => `
+    <tr>
+      <td><input type="text" data-didx="${i}" data-campo="d" value="${esc(d.d)}" maxlength="40"></td>
+      <td style="text-align:right"><input type="number" data-didx="${i}" data-campo="v" value="${d.v}" min="0" step="0.01"></td>
+      <td><select data-didx="${i}" data-campo="t">${Object.entries(TIPOS).map(([k,nome]) =>
+        `<option value="${k}"${d.t===k?" selected":""}>${nome}</option>`).join("")}</select></td>
+      <td><select data-didx="${i}" data-campo="g">${GRUPOS.map((g,gi) =>
+        `<option value="${gi}"${d.g===gi?" selected":""}>${g.nome}</option>`).join("")}</select></td>
+      <td><button type="button" class="btn mini remover" data-del="${i}" title="Remover lançamento">×</button></td>
+    </tr>`).join("");
+  $("d-vazia").style.display = S.despesas.length ? "none" : "block";
+}
+renderDespesas();
+
+/* ================= leitura de inputs ================= */
+function lerInputs(){
+  document.querySelectorAll("[data-path]").forEach(el => {
+    S[el.dataset.path] = Math.max(0, parseFloat(el.value) || 0);
+  });
+  document.querySelectorAll("[data-pct]").forEach(el => {
+    S[el.dataset.pct] = Math.max(0, parseFloat(el.value) || 0) / 100;
+  });
+  document.querySelectorAll("[data-didx]").forEach(el => {
+    const it = S.despesas[+el.dataset.didx]; if (!it) return;
+    const c = el.dataset.campo;
+    if (c === "d") it.d = el.value.trim() || "Lançamento";
+    else if (c === "v") it.v = Math.max(0, parseFloat(el.value)||0);
+    else if (c === "t") it.t = el.value;
+    else it.g = +el.value;
+  });
+}
+
+/* ================= gráficos ================= */
+const ch = {};
+function montaChart(id, tipo, dados, cfg={}){
+  if (!window.Chart) return null;
+  return new Chart($(id), {type:tipo, data:dados, options:{
+    responsive:true, maintainAspectRatio:false, ...cfg}});
+}
+function atualizaCharts(){
+  if (ch.dist){ ch.dist.data.datasets[0].data = gastos(); ch.dist.update(); }
+}
+function montaCharts(){
+  if (!window.Chart) return;
+  Chart.defaults.font.family = "system-ui,sans-serif";
+  ch.dist = montaChart("chDistribuicao","doughnut",{
+    labels: GRUPOS.map(g=>g.nome),
+    datasets:[{data:gastos(),backgroundColor:GRUPOS.map(g=>g.cor),borderWidth:2,borderColor:"#fff"}]},
+    {cutout:"58%", plugins:{legend:{position:"right",labels:{boxWidth:11,font:{size:11}}}}});
+  ch.plano = montaChart("chPlano","line",{
+    labels: Array.from({length:12},(_,i)=>"Mês "+(i+1)), datasets:[
+      {label:"Total acumulado",data:[],borderColor:"#1F3864",backgroundColor:"#DDEBF7",fill:true,tension:.3,pointRadius:0},
+      {label:"Reserva de emergência",data:[],borderColor:"#C55A11",tension:.3,pointRadius:0},
+      {label:"Investimentos",data:[],borderColor:"#1F7A6D",borderDash:[5,4],tension:.3,pointRadius:0}]},
+    {plugins:{legend:{labels:{boxWidth:11,font:{size:10}}}}});
+  atualizaCharts();
+}
+
+/* ================= recálculo geral ================= */
+function update(){
+  lerInputs();
+  const RT = rendaTotal(), lim = limites(), g = gastos();
+  const FX = fixas(), VR = variaveis(), AN = anuais(), RA = reservaAnual();
+  const GT = gastoTotal(), SO = Math.max(0, sobra());
+
+  /* diagnóstico */
+  setTxt("k-renda", moeda(RT));
+  setTxt("k-fixas", moeda(FX));
+  setTxt("k-anuais", moeda(AN));
+  setTxt("k-reserva-anual", moeda(RA));
+  setTxt("k-meses-seg", GT > 0 ? num(S.reserva/GT,1) + " meses" : "—");
+  setTxt("k-dados", RT > 0
+    ? `Ganhos R$ ${num(RT,0)} · gastos R$ ${num(GT,0)} · sobra R$ ${num(SO,0)}` : "—");
+
+  /* despesas */
+  const pr = v => RT > 0 ? pctf(v/RT) + " da renda" : "—";
+  setTxt("d-fixas", moeda(FX)); setTxt("d-fixas-pct", pr(FX));
+  setTxt("d-variaveis", moeda(VR)); setTxt("d-variaveis-pct", pr(VR));
+  setTxt("d-reserva", moeda(RA));
+  setTxt("d-reserva-info", AN > 0 ? `${moeda(AN)} por ano ÷ 12 meses` : "Nenhum compromisso anual lançado");
+  setTxt("d-qtd", S.despesas.length ? "(" + S.despesas.length + " lançamentos)" : "");
+
+  /* orçamento */
+  GRUPOS.forEach((gr, i) => {
+    const L = lim[i], gI = g[i];
+    setTxt("lim-"+i, moeda(L)); setTxt("gasto-"+i, moeda(gI));
+    setTxt("pode-"+i, moeda(L - gI));
+    const prog = L > 0 ? Math.min(gI/L, 1.2) : 0;
+    const barra = $("bar-"+i); barra.style.width = (prog*100).toFixed(1)+"%";
+    barra.style.background = gI > L ? "#C5221F" : gI >= .9*L ? "#B26A00" : gr.cor;
+    const st = $("st-"+i);
+    st.textContent = gI > L ? "⚠ ultrapassou" : gI >= .9*L ? "⚠ atenção" : "✓ ok";
+    st.className = "status " + (gI > L ? "bad" : gI >= .9*L ? "warn" : "ok");
+  });
+  setTxt("tf-limite", moeda(lim.reduce((a,b)=>a+b,0)));
+  setTxt("tf-gasto", moeda(GT));
+  setTxt("tf-saldo", moeda(RT - GT - RA));
+  const stT = $("st-total");
+  stT.textContent = RT - GT - RA >= 0 ? "✓ orçamento fecha" : "⚠ gastos acima da renda";
+  stT.className = "status " + (RT - GT - RA >= 0 ? "ok" : "bad");
+  setTxt("o-reserva", moeda(RA)); setTxt("o-sobra", moeda(SO));
+  setTxt("r-renda", moeda(RT)); setTxt("r-gasto", moeda(GT));
+  setTxt("r-reserva", moeda(RA)); setTxt("r-sobra", moeda(SO));
+
+  /* plano */
+  setTxt("p-sobra", moeda(SO));
+  setTxt("p-sobra-frase", RT > 0
+    ? `Renda R$ ${num(RT,0)} − gastos R$ ${num(GT,0)} − reserva anual R$ ${num(RA,0)}` : "—");
+  const meta = g[0]*6;   // 6 × gasto real do grupo Custos Fixos (essenciais, incl. variáveis como mercado/luz)
+  setTxt("p-res-hoje", moeda(S.reserva)); setTxt("p-res-meta", moeda(meta));
+  setTxt("p-res-falta", moeda(Math.max(0, meta - S.reserva)));
+  const barraR = $("p-res-barra");
+  barraR.style.width = (meta > 0 ? Math.min(S.reserva/meta, 1)*100 : 0).toFixed(1)+"%";
+  const i = S.taxa/12;
+  const nRes = SO > 0 && meta > S.reserva ? nper(i, SO, S.reserva, meta) : NaN;
+  setTxt("p-res-tempo", isFinite(nRes)
+    ? `Com a sobra atual, completa a reserva em ${num(nRes,0)} mês(es).`
+    : meta > 0 && S.reserva >= meta ? "✓ Reserva completa!" : "Sem sobra no momento — corte gastos para começar.");
+  const destRes = SO > 0 && S.reserva < meta ? SO : 0;
+  setTxt("p-dest-res", moeda(destRes));
+  setTxt("p-dest-inv", moeda(SO - destRes));
+  setTxt("p-dest-frase", S.reserva >= meta
+    ? "Reserva completa ✓ — toda a sobra vira investimento (patrimônio)."
+    : "Enquanto a reserva não completa a meta, toda a sobra vai para ela. Depois, vira investimento.");
+
+  /* projeção mês a mês (12 meses): reserva primeiro, depois investimentos */
+  let res = S.reserva, inv = 0;
+  const tot = [], dRes = [], dInv = [];
+  for (let m = 1; m <= 12; m++){
+    const aRes = res < meta ? SO : 0;
+    res = res*(1+i) + aRes;
+    inv = inv*(1+i) + (SO - aRes);
+    tot.push(res + inv); dRes.push(res); dInv.push(inv);
+  }
+  [[1,"p-m1"],[3,"p-m3"],[6,"p-m6"],[12,"p-m12"]].forEach(([m,id]) => setTxt(id, moeda(tot[m-1])));
+  [[1,"p-m1-d"],[3,"p-m3-d"],[6,"p-m6-d"],[12,"p-m12-d"]].forEach(([m,id]) =>
+    setTxt(id, `reserva ${num(dRes[m-1],0)} · invest. ${num(dInv[m-1],0)}`));
+  const j12 = tot[11] - (S.reserva + SO*12);
+  setTxt("p-frase-ano", SO > 0
+    ? `Em 12 meses guardando R$ ${num(SO,0)}/mês você terá ${moeda(tot[11])} — ${moeda(Math.min(S.reserva + SO*12, meta))} disso é proteção (reserva) e o resto está crescendo nos investimentos (inclui ${moeda(Math.max(0,j12))} de juros).`
+    : "Sem sobra no mês, não há projeção — reduza gastos na aba Despesas para começar.");
+  if (ch.plano){
+    ch.plano.data.datasets[0].data = tot;
+    ch.plano.data.datasets[1].data = dRes;
+    ch.plano.data.datasets[2].data = dInv;
+    ch.plano.update();
+  }
+
+  salvar();
+}
+
+/* ================= dados de mercado (BCB + cache) ================= */
+function aplicarMercado(){
+  if (!M) return;
+  const horas = ((Date.now()-M.ts)/3600000).toFixed(1);
+  const b = $("badgeMercado");
+  b.classList.toggle("cache", Date.now()-M.ts > TTL);
+  setTxt("txtMercado", `Selic ${pctf(M.selic,2)} · IPCA-12m ${pctf(M.ipca,2)} · BCB ${M.selicData} · cache de ${horas}h`);
+}
+async function atualizarMercado(forcar){
+  try { M = JSON.parse(localStorage.getItem(CHAVE_MERCADO)); } catch(e){}
+  if (M) aplicarMercado();
+  if (!forcar && M && Date.now()-M.ts < TTL) return;
+  try {
+    const [se, ip] = await Promise.all([
+      fetch("https://api.bcb.gov.br/dados/serie/bcdata.sgs.1178/dados/ultimos/1?formato=json").then(r=>r.json()),
+      fetch("https://api.bcb.gov.br/dados/serie/bcdata.sgs.13522/dados/ultimos/1?formato=json").then(r=>r.json()),
+    ]);
+    M = {ts:Date.now(), selic:+se[0].valor/100, selicData:se[0].data,
+         ipca:+ip[0].valor/100, ipcaData:ip[0].data, cdi:Math.max(0,+se[0].valor/100-0.001)};
+    localStorage.setItem(CHAVE_MERCADO, JSON.stringify(M));
+    aplicarMercado();
+  } catch(e){
+    setTxt("txtMercado", M ? "offline — usando cache" : "sem conexão com o BCB — usando taxas editáveis");
+    if (M) aplicarMercado();
+  }
+}
+
+/* ================= eventos ================= */
+document.addEventListener("input", e => { if (e.target.matches("input")) update(); });
+document.addEventListener("change", e => {
+  if (e.target.matches("select[data-didx]")) update();
+  if (e.target.id === "nd-tipo") $("hint-anual").style.display = e.target.value === "A" ? "block" : "none";
+});
+$("form-despesa").onsubmit = e => {
+  e.preventDefault();
+  S.despesas.push({d:$("nd-desc").value.trim() || "Lançamento", v:parseFloat($("nd-valor").value)||0,
+                   t:$("nd-tipo").value, g:+$("nd-grupo").value});
+  $("nd-desc").value = ""; $("nd-valor").value = "";
+  renderDespesas(); update();
+};
+$("tb-despesas").onclick = e => {
+  const b = e.target.closest("[data-del]"); if (!b) return;
+  S.despesas.splice(+b.dataset.del, 1); renderDespesas(); update();
+};
+$("atalhos").onclick = e => {
+  const b = e.target.closest("[data-atalho]"); if (!b) return;
+  const a = ATALHOS[+b.dataset.atalho];
+  $("nd-desc").value = a[0]; $("nd-tipo").value = a[1]; $("nd-grupo").value = a[2];
+  $("hint-anual").style.display = a[1] === "A" ? "block" : "none";
+  $("nd-valor").focus();
+};
+$("btnAtualizar").onclick = () => atualizarMercado(true);
+$("btnCdi").onclick = () => { if (M){ S.taxa = M.cdi; $("p-taxa").value = num(M.cdi*100,2); update(); } };
+
+/* inicialização */
+document.querySelectorAll("[data-path]").forEach(el => { el.value = S[el.dataset.path]; });
+$("p-taxa").value = num(S.taxa*100,2);
+montaCharts();
+atualizarMercado(false);
+update();
+</script>
+</body>
+</html>
