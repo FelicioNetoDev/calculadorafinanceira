@@ -328,7 +328,7 @@
     <div class="label" id="aviso-dividas-txt"></div>
   </div>
   <div class="card" style="margin-top:14px">
-    <h3>Seus investimentos mensais (edite os valores)</h3>
+    <h3>Seus investimentos mensais</h3>
     <div class="linha" style="margin-bottom:10px">
       <div class="campo" style="flex:1;min-width:160px;max-width:240px"><label>Seu perfil de investidor</label>
         <select id="sel-perfil">
@@ -338,16 +338,18 @@
         <div class="kpi num" id="inv-total">—</div>
         <span class="status warn" id="inv-status" style="display:none"></span>
         <div class="label" id="inv-min">—</div>
+        <div class="label" id="inv-rend"></div>
       </div>
     </div>
     <div style="overflow-x:auto">
       <table>
-        <thead><tr><th>Onde investir</th><th style="text-align:right">Por mês (R$)</th></tr></thead>
+        <thead><tr><th>Onde investir (edite o nome)</th><th style="text-align:right">Rendimento</th>
+          <th style="text-align:right">Por mês (R$)</th><th></th></tr></thead>
         <tbody id="tb-carteira"></tbody>
       </table>
     </div>
-    <div class="nota" id="inv-nota">As porcentagens são sugestão educacional do seu perfil — não é recomendação
-      individualizada. Preencha quanto vai aportar em cada um; o plano usa esses valores.</div>
+    <div style="margin-top:8px"><button type="button" class="btn mini" id="btnAddAporte">+ adicionar investimento</button></div>
+    <div class="nota" id="inv-nota">—</div>
   </div>
   <div class="card destaque" style="margin-top:14px">
     <h3>🎯 Se seguir a risca, você alcança</h3>
@@ -356,7 +358,7 @@
       <button class="btn mini" id="btnAtualizar" title="Buscar Selic, CDI e IPCA no Banco Central">↻ atualizar taxas</button>
     </div>
     <div class="linha" style="margin-bottom:12px">
-      <span class="label">Taxa dos investimentos (a.a.) — a reserva rende 100% do CDI</span>
+      <span class="label">CDI de referência (a.a.) — a reserva rende 100% dele; aportes em "% do CDI" usam esta taxa quando o BCB está offline</span>
       <span class="linha" style="gap:8px">
         <input type="number" min="0" step="0.1" id="p-taxa" data-path="taxa" data-pct="taxa"
                style="width:110px" title="Taxa de juros anual">
@@ -377,8 +379,8 @@
     <div class="label" style="margin-top:10px" id="p-frase-ano">—</div>
     <div style="height:200px;position:relative;margin-top:12px"><canvas id="chPlano"></canvas></div>
     <div class="nota">Orientação dos economistas: complete a reserva (6 × seus gastos mensais) antes de aumentar os
-      aportes — protege primeiro, cresce depois. Valores brutos: não descontam imposto de renda dos investimentos
-      (em CDB/Tesouro o IR cai de 22,5% para 15% após 2 anos).</div>
+      aportes — protege primeiro, cresce depois. A reserva rende 100% do CDI bruto; nos aportes, linhas em
+      "% do CDI · com IR" descontam IR fixo de 15% (regressivo: 22,5% se resgatar antes de 2 anos).</div>
   </div>
 </section>
 
@@ -441,7 +443,12 @@ let M = null;                        // dados de mercado {selic, cdi, ipca, data
 const padrao = () => ({
   ver: 5,
   renda: 5000, outras: 0, reserva: 2000, investido: 0, dividas: 3000, taxa: 0.105, perfil: "Moderado",
-  aportes: {Conservador:[0,0,0], Moderado:[0,0,0,0], Arrojado:[0,0,0,0]},
+  aportes: [                                  // seus aportes mensais — nome, rendimento e valor editáveis
+    {d:"Renda fixa (CDB/LCI/LCA/Tesouro Selic)", v:0, r:100, m:"cdiir"},
+    {d:"Tesouro IPCA+ (protege da inflação)", v:0, r:10, m:"net"},
+    {d:"FIIs / Fundos imobiliários", v:0, r:8, m:"net"},
+    {d:"Ações / ETFs", v:0, r:10, m:"net"},
+  ],
   despesas: [
     {d:"Aluguel/Financiamento", v:1000, t:"F", g:0},
     {d:"Luz", v:120, t:"V", g:0},
@@ -469,6 +476,11 @@ try {
       });
       S.despesas = S.despesas.filter(d => d.g < 7);
     }
+    if (S.aportes && !Array.isArray(S.aportes)){   // formato antigo (aportes por perfil) → lista única
+      const aps = S.aportes[S.perfil] || S.aportes.Moderado || [];
+      S.aportes = (CARTEIRAS[S.perfil] || CARTEIRAS.Moderado).map(([nome],i)=>({d:nome, v:aps[i]||0}));
+    }
+    (S.aportes || []).forEach(a => { if (a.r === undefined){ a.r = 100; a.m = "cdiir"; } });   // linhas sem rendimento
     S.ver = 5;
   }
 } catch(e){}
@@ -551,14 +563,22 @@ function renderDespesas(){
   $("d-vazia").style.display = S.despesas.length ? "none" : "block";
 }
 renderDespesas();
-function renderCarteira(){          // aportes editáveis por perfil — só re-renderiza ao trocar de perfil
-  const car = CARTEIRAS[S.perfil] || CARTEIRAS.Moderado;
-  if (!S.aportes[S.perfil]) S.aportes[S.perfil] = car.map(() => 0);
-  const aps = S.aportes[S.perfil];
-  $("tb-carteira").innerHTML = car.map(([nome,p],idx) =>
-    `<tr><td>${nome}<div class="label">sugestão: ${pctf(p,0)} da sobra</div></td>
-     <td style="text-align:right"><input type="number" min="0" step="10" data-ap="${S.perfil}"
-       data-idx="${idx}" value="${aps[idx]||0}" style="width:110px;text-align:right;background:#fff"></td></tr>`).join("");
+function renderCarteira(){          // seus aportes: re-renderiza só ao adicionar/remover linha
+  $("tb-carteira").innerHTML = S.aportes.map((a,i) =>
+    `<tr>
+      <td><input type="text" data-apd="${i}" value="${esc(a.d)}" maxlength="40" placeholder="ex.: LCI/LCA 89% do CDI"></td>
+      <td style="text-align:right;white-space:nowrap">
+        <input type="number" min="0" step="1" data-apr="${i}" value="${a.r ?? 100}"
+          style="width:60px;text-align:right;background:#fff">
+        <select data-apm="${i}" style="max-width:150px">
+          <option value="cdi"${a.m==="cdi"?" selected":""}>% do CDI · isento</option>
+          <option value="cdiir"${a.m==="cdiir"?" selected":""}>% do CDI · com IR</option>
+          <option value="net"${a.m==="net"?" selected":""}>% a.a. líquido</option>
+        </select></td>
+      <td style="text-align:right"><input type="number" min="0" step="10" data-apv="${i}" value="${a.v}"
+        style="width:110px;text-align:right;background:#fff"></td>
+      <td><button type="button" class="btn mini remover" data-delap="${i}" title="Remover investimento">×</button></td>
+    </tr>`).join("");
 }
 
 /* ================= leitura de inputs ================= */
@@ -570,9 +590,17 @@ function lerInputs(){
     S[el.dataset.pct] = Math.max(0, parseFloat(el.value) || 0) / 100;
   });
   S.perfil = $("sel-perfil").value || "Moderado";
-  document.querySelectorAll("[data-ap]").forEach(el => {   // aportes da tabela editável do Plano
-    const aps = S.aportes[el.dataset.ap] || S.aportes.Moderado;
-    if (aps) aps[+el.dataset.idx] = Math.max(0, parseFloat(el.value)||0);
+  document.querySelectorAll("[data-apd]").forEach(el => {   // seus aportes no Plano (nome e valor)
+    const it = S.aportes[+el.dataset.apd]; if (it) it.d = el.value.trim() || "Investimento";
+  });
+  document.querySelectorAll("[data-apv]").forEach(el => {
+    const it = S.aportes[+el.dataset.apv]; if (it) it.v = Math.max(0, parseFloat(el.value)||0);
+  });
+  document.querySelectorAll("[data-apr]").forEach(el => {
+    const it = S.aportes[+el.dataset.apr]; if (it) it.r = Math.max(0, parseFloat(el.value)||0);
+  });
+  document.querySelectorAll("[data-apm]").forEach(el => {
+    const it = S.aportes[+el.dataset.apm]; if (it) it.m = el.value;
   });
   document.querySelectorAll("[data-didx]").forEach(el => {
     const it = S.despesas[+el.dataset.didx]; if (!it) return;
@@ -616,7 +644,7 @@ function update(){
   const RT = rendaTotal(), lim = limites(), g = gastos();
   const FX = fixas(), VR = variaveis(), AN = anuais(), RA = reservaAnual();
   const GT = gastoTotal(), SO = Math.max(0, sobra());
-  const A = (S.aportes[S.perfil] || S.aportes.Moderado).reduce((a,b)=>a+b,0);   // aportes definidos por você
+  const A = S.aportes.reduce((a,x)=>a+(x.v||0),0);   // total dos seus aportes mensais
   const aResM = Math.max(0, SO - A);   // o que sobra da sobra vai para a reserva
 
   /* diagnóstico */
@@ -673,7 +701,6 @@ function update(){
   barraR.style.width = (meta > 0 ? Math.min(S.reserva/meta, 1)*100 : 0).toFixed(1)+"%";
   const iRes = M ? M.cdi : S.taxa;   // reserva rende 100% do CDI (Tesouro Selic / CDB liquidez diária)
   setTxt("p-res-taxa", M ? `${pctf(iRes,2)} a.a. (100% do CDI)` : `${pctf(iRes,2)} a.a. (estimada — sem dados do BCB)`);
-  const i = S.taxa/12;
   const nRes = meta > S.reserva ? nper(iRes/12, aResM, S.reserva, meta) : NaN;
   setTxt("p-res-tempo", meta > 0 && S.reserva >= meta ? "✓ Reserva completa!"
     : isFinite(nRes) ? `Reservando ${moeda(aResM)}/mês, completa a reserva em ${num(nRes,0)} mês(es).`
@@ -699,13 +726,23 @@ function update(){
   stInv.textContent = A >= minInv ? "✓ mínimo atingido" : "⚠ abaixo do mínimo";
   stInv.className = "status " + (A >= minInv ? "ok" : "warn");
   setTxt("inv-min", `Mínimo recomendado: ${moeda(minInv)}/mês (20% da renda)`);
+  setTxt("inv-nota", `Sugestão educacional p/ perfil ${S.perfil}: ` +
+    (CARTEIRAS[S.perfil] || CARTEIRAS.Moderado).map(([n,p]) => `${pctf(p,0)} ${n.split(" (")[0]}`).join(" · ") +
+    " — não é recomendação individualizada.");
+  const pesoLiq = S.aportes.reduce((s,a) => {   // rendimento líquido de cada aporte, ponderado pelo valor
+    const r = (a.r ?? 100)/100;
+    const net = a.m === "net" ? r : r * iRes * (a.m === "cdiir" ? .85 : 1);   // IR regressivo a 15% (após 2 anos)
+    return [s[0] + (a.v||0)*net, s[1] + (a.v||0)];
+  }, [0,0]);
+  const iInv = pesoLiq[1] > 0 ? pesoLiq[0]/pesoLiq[1] : S.taxa;
+  setTxt("inv-rend", A > 0 ? `Rendimento médio dos seus aportes: ${pctf(iInv,2)} a.a. líquido` : "");
 
   /* projeção mês a mês (12 meses): aportes que você definiu + resto da sobra para a reserva */
   let res = S.reserva, inv = S.investido;
   const tot = [], dRes = [], dInv = [];
   for (let m = 1; m <= 12; m++){
     res = res*(1+iRes/12) + aResM;
-    inv = inv*(1+i) + A;
+    inv = inv*(1+iInv/12) + A;
     tot.push(res + inv); dRes.push(res); dInv.push(inv);
   }
   [[1,"p-m1"],[3,"p-m3"],[6,"p-m6"],[12,"p-m12"]].forEach(([m,id]) => setTxt(id, moeda(tot[m-1])));
@@ -755,9 +792,9 @@ async function atualizarMercado(forcar){
 /* ================= eventos ================= */
 document.addEventListener("input", e => { if (e.target.matches("input")) update(); });
 document.addEventListener("change", e => {
-  if (e.target.matches("select[data-didx]")) update();
+  if (e.target.matches("select[data-didx], select[data-apm]")) update();
   if (e.target.id === "nd-tipo") $("hint-anual").style.display = e.target.value === "A" ? "block" : "none";
-  if (e.target.id === "sel-perfil"){ renderCarteira(); update(); }
+  if (e.target.id === "sel-perfil") update();
 });
 $("form-despesa").onsubmit = e => {
   e.preventDefault();
@@ -770,6 +807,11 @@ $("tb-despesas").onclick = e => {
   const b = e.target.closest("[data-del]"); if (!b) return;
   S.despesas.splice(+b.dataset.del, 1); renderDespesas(); update();
 };
+$("tb-carteira").onclick = e => {
+  const b = e.target.closest("[data-delap]"); if (!b) return;
+  S.aportes.splice(+b.dataset.delap, 1); renderCarteira(); update();
+};
+$("btnAddAporte").onclick = () => { S.aportes.push({d:"", v:0, r:100, m:"cdiir"}); renderCarteira(); update(); };
 $("atalhos").onclick = e => {
   const b = e.target.closest("[data-atalho]"); if (!b) return;
   const a = ATALHOS[+b.dataset.atalho];
