@@ -441,7 +441,6 @@ const num = (v, d=0) => (isFinite(v) ? v : 0).toLocaleString("pt-BR", {maximumFr
 const $ = id => document.getElementById(id);
 const setTxt = (id, t) => { const el = $(id); if (el) el.textContent = t; };
 
-function fv(i, n, pmt, pv){ const k = Math.pow(1+i, n); return pv*k + (i ? pmt*(k-1)/i : pmt*n); }
 function nper(i, pmt, pv, alvo){
   if (pv >= alvo) return 0;
   if (i === 0) return (alvo - pv) / pmt;
@@ -571,7 +570,7 @@ function update(){
   setTxt("k-reserva-anual", moeda(RA));
   setTxt("k-meses-seg", GT > 0 ? num(S.reserva/GT,1) + " meses" : "—");
   setTxt("k-dados", RT > 0
-    ? `Ganhos R$ ${num(RT,0)} · gastos R$ ${num(GT,0)} · sobra R$ ${num(SO,0)}` : "—");
+    ? `Ganhos R$ ${num(RT,0)} · gastos R$ ${num(GT,0)} · sobra R$ ${num(RT-GT-RA,0)}` : "—");
 
   /* despesas */
   const pr = v => RT > 0 ? pctf(v/RT) + " da renda" : "—";
@@ -599,12 +598,12 @@ function update(){
   const stT = $("st-total");
   stT.textContent = RT - GT - RA >= 0 ? "✓ orçamento fecha" : "⚠ gastos acima da renda";
   stT.className = "status " + (RT - GT - RA >= 0 ? "ok" : "bad");
-  setTxt("o-reserva", moeda(RA)); setTxt("o-sobra", moeda(SO));
+  setTxt("o-reserva", moeda(RA)); setTxt("o-sobra", moeda(RT-GT-RA));   // saldo real, pode ser negativo
   setTxt("r-renda", moeda(RT)); setTxt("r-gasto", moeda(GT));
-  setTxt("r-reserva", moeda(RA)); setTxt("r-sobra", moeda(SO));
+  setTxt("r-reserva", moeda(RA)); setTxt("r-sobra", moeda(RT-GT-RA));
 
   /* plano */
-  setTxt("p-sobra", moeda(SO));
+  setTxt("p-sobra", moeda(RT-GT-RA));   // saldo real; SO (≥0) é usado só nos cálculos
   setTxt("p-sobra-frase", RT > 0
     ? `Renda R$ ${num(RT,0)} − gastos R$ ${num(GT,0)} − reserva anual R$ ${num(RA,0)}` : "—");
   const meta = g[0]*6;   // 6 × gasto real do grupo Custos Fixos (essenciais, incl. variáveis como mercado/luz)
@@ -615,7 +614,7 @@ function update(){
   const iRes = M ? M.cdi : S.taxa;   // reserva rende 100% do CDI (Tesouro Selic / CDB liquidez diária)
   setTxt("p-res-taxa", `${pctf(iRes,2)} a.a. (100% do CDI)`);
   const i = S.taxa/12;
-  const nRes = SO > 0 && meta > S.reserva ? nper(iRes, SO, S.reserva, meta) : NaN;
+  const nRes = SO > 0 && meta > S.reserva ? nper(iRes/12, SO, S.reserva, meta) : NaN;
   setTxt("p-res-tempo", isFinite(nRes)
     ? `Com a sobra atual, completa a reserva em ${num(nRes,0)} mês(es).`
     : meta > 0 && S.reserva >= meta ? "✓ Reserva completa!" : "Sem sobra no momento — corte gastos para começar.");
@@ -649,7 +648,7 @@ function update(){
   const tot = [], dRes = [], dInv = [];
   for (let m = 1; m <= 12; m++){
     const aRes = res < meta ? SO : 0;
-    res = res*(1+iRes) + aRes;
+    res = res*(1+iRes/12) + aRes;   // iRes é taxa anual — converter p/ mensal
     inv = inv*(1+i) + (SO - aRes);
     tot.push(res + inv); dRes.push(res); dInv.push(inv);
   }
@@ -658,7 +657,7 @@ function update(){
     setTxt(id, `reserva ${num(dRes[m-1],0)} · invest. ${num(dInv[m-1],0)}`));
   const j12 = tot[11] - (S.reserva + SO*12);
   setTxt("p-frase-ano", SO > 0
-    ? `Em 12 meses guardando R$ ${num(SO,0)}/mês você terá ${moeda(tot[11])} — ${moeda(Math.min(S.reserva + SO*12, meta))} disso é proteção (reserva) e o resto está crescendo nos investimentos (inclui ${moeda(Math.max(0,j12))} de juros).`
+    ? `Em 12 meses guardando R$ ${num(SO,0)}/mês você terá ${moeda(tot[11])} — ${moeda(dRes[11])} disso é reserva de emergência e o resto está nos investimentos (inclui ${moeda(Math.max(0,j12))} de juros).`
     : "Sem sobra no mês, não há projeção — reduza gastos na aba Despesas para começar.");
   if (ch.plano){
     ch.plano.data.datasets[0].data = tot;
