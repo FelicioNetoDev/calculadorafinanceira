@@ -1,6 +1,7 @@
 {
-  "name": "Gestor Pessoal Econômico",
+  "name": "Gestor Pessoal Econômico 2.0",
   "short_name": "Gestor",
+  "version": "2.0.0",
   "description": "Sua renda, despesas e plano de reserva e investimentos em uma calculadora mensal.",
   "lang": "pt-BR",
   "start_url": "./index.html",
